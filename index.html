@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Instituciones C9</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js" integrity="sha384-IQsoLXl5PILFhosVNubq5LC7Qb9DXgDA9i+tQ8Zj3iwWAwPtgFTxbJ8NT4GN1R8p" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js" integrity="sha384-cVKIPhGWiC2Al4u+LWgxfKTRIcfu0JTxR+EQDz/bgldoEyl4H0zUF0QKbrJ0EcQF" crossorigin="anonymous"></script>
+
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+    <script src="js/url.js"></script>
+
+    <!-- Estilo personalizado para el mapa y el panel -->
+    <style>
+        body, html {
+            height: 100%;
+            width: 100%;
+        }
+        #map {
+            height: 100%;
+            width: 70%;
+            float: left;
+        }
+        #sidebar {
+            height: 100%;
+            width: 30%;
+            float: right;
+            background-color: #f4f4f4;
+            padding: 10px;
+            box-sizing: border-box;
+            border-left: 2px solid #ccc;
+        }
+        .button {
+            display: block;
+            margin: 10px 0;
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: white;
+            text-align: center;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .button.active {
+            background-color: #28a745;
+        }
+        Estilos para el formulario
+        .popup-form {
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        .popup-form input[type="text"],
+        .popup-form textarea {
+            width: 100%;
+            padding: 5px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box; /* Asegura que padding no afecte el ancho total */
+        }
+        .popup-form button {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border: none;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        .popup-form button:hover {
+            background-color: #0056b3;
+        }
+        .info {
+            padding: 6px 8px;
+            font: 14px/16px Arial, Helvetica, sans-serif;
+            background: white;
+            background: rgba(255,255,255,0.8);
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            border-radius: 5px;
+        }
+        .info h4 {
+            margin: 0 0 5px;
+            color: #777;
+        }
+        .toast-container {
+            position: fixed;
+            bottom: 1rem;
+            left: 1rem;
+            z-index: 1050; /* Asegúrate de que el z-index sea suficientemente alto para superponerse a otros elementos */
+        }
+        
+        #tablaInstituciones tr:hover {
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+    <!-- mapa -->
+    <div id="map"></div>
+    
+    <!-- menú para los botones -->
+    <div id="sidebar">
+        <div style="max-height: 80%; overflow-y: auto;" >
+            <table id= "tablaInstituciones" class="table table-bordered table-hover" style="color:rgb(0, 0, 0)">
+                <thead>
+                    <tr class="table-success">
+                        <th colspan="3" scope="row" style="color:rgb(9, 9, 9); text-align: center;">INSTITUCIONES EDUCATIVAS COMUNA 9</th>
+                    </tr>
+                    <tr class="table-info" style = "text-align: center;">
+                    <th scope="col" >NOMBRE</th>
+                    <th scope="col" >DIRECCIÓN</th>
+                    <th scope="col" >TOTAL ESTUDIANTES</th>
+                    </tr> 
+                </thead>
+                <tbody>
+                    <tr >
+                        <th ></th>
+                        <td ></td>
+                    </tr>
+                </tbody>
+                </table>
+        </div>
+        <div id="toggleMarkerButton" class="button">Activar Creación de Marcador</div>
+        <div id="centrarMapa" class="button" onclick="centerMap()">Centrar el mapa</div>
+    </div>
+
+    <!-- Contenedor de la alerta (Toast) -->
+    <div aria-live="polite" aria-atomic="true" class="position-relative ">
+        <div class="toast-container position-fixed bottom-0 end-0 p-3">
+            <div class="toast" role="alert" aria-live="assertive" aria-atomic="true" id="miToast">
+                <div class="toast-header bg-success">
+                <strong class="me-auto text-white" >Notificación</strong>
+                <small class="text-white">Hace un momento</small>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Inicializar el mapa
+        var map = L.map('map').setView([3.43, -76.55], 14);
+        L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png').addTo(map);
+        
+        var miToastEl = document.getElementById('miToast');
+        var miToast = new bootstrap.Toast(miToastEl);
+        
+        
+        //mostrar la información del marcador
+        var info = L.control({position:'bottomright'});
+        info.onAdd = function (map) {
+            this._div = L.DomUtil.create('div', 'info'); 
+            this.update();
+            return this._div;
+        };
+        //actualizar información de los marcadores en 
+        info.update = function (props) {
+            this._div.innerHTML = '<h4>ESCUELAS COMUNA 9-CALI </h4>' +  (props ?
+            '<b>' + props.nombre + '</b><br />' + props.direccion
+            : 'Pasa por una escuela');
+        };
+        
+        const addClassTrActive = (event)=>{
+            let fila = event.target.closest('tr');
+            const layers = GeoJsonLayer.getLayers()
+            const filterLayer = layers.find(element => String(element.feature.properties.id_marcador) === String(fila.id));
+            map.flyTo(filterLayer.getLatLng(), 18)
+        };
+
+        info.addTo(map);
+        
+        let GeoJsonLayer = L.geoJson();
+        let markerCreate = L.marker();
+        
+        var isMarkerModeActive = false; // Estado para saber si el modo marcador está activo
+        
+        // Evento de clic en el botón
+        document.getElementById('toggleMarkerButton').addEventListener('click', function() {
+            isMarkerModeActive = !isMarkerModeActive; // Cambiar el estado
+            this.classList.toggle('active'); // Cambiar el estilo del botón
+            
+            if (isMarkerModeActive) {
+                this.textContent = 'Desactivar Creación de Marcador';
+            } else {
+                this.textContent = 'Activar Creación de Marcador';
+            }
+        });
+        //centrar el mapa, se le añade una animacion
+        const centerMap = ()=>{
+            map.flyToBounds(GeoJsonLayer.getBounds())
+        }
+
+        //actualizr o modificar la información del marcador
+        const updateMarker = (event)=>{
+            const nombre = document.getElementById('nombre').value
+            const direccion = document.getElementById('direccion').value
+            const total_estudiantes = document.getElementById('total_estudiantes').value
+            const id = document.getElementById('id_marcador').value
+            
+            let formData = new FormData();
+            
+            formData.append("nombre", nombre);
+            formData.append("direccion", direccion);
+            formData.append("total_estudiantes", total_estudiantes);
+            formData.append("id_marcador", id);
+            fetch('http://localhost:8001/geovisor/update/marcadores', {
+                method: 'PATCH',
+                body: formData // o JSON.stringify(formObject) si el backend espera JSON
+            })
+            .then(response => response.json()) //manejar respuesta exitosa
+            .then(data => loadMarkers()) // cargar la respuesta
+            .catch(error => console.error('Error:', error)); // manejar error en la solicitud
+        }
+
+        //eliminar un marcador
+        const deleteMarker = (event)=>{
+            const id = document.getElementById('id_marcador').value
+            fetch(`${url}geovisor/delete/marcadores/${id}`, {
+                method: 'DELETE',
+            })
+            .then(response => response.json())
+            .then(data => {
+                miToastEl.querySelector('.toast-body').textContent = 'El marcador se elimino correctamente';
+                miToast.show(); // mostrar alerta
+                loadMarkers()
+            })
+            .catch(error => console.error('Error:', error));
+         
+        }
+
+        // opciones de edicion para los marcadores existentes
+        const formulario = (id, nombre, direccion, total_estudiantes)=> (`
+            <form class="popup-form" >
+                <input type="text" id='id_marcador' name='id' value=${id} placeholder="Nombre" disabled>
+                <input type="text" id = 'nombre' name='nombre' value=${nombre} placeholder="Nombre">
+                <input type="text" id = 'direccion' name='direccion' value=${direccion} placeholder="Direccion">
+                <input type="text" id = 'total_estudiantes' name='total_estudiantes' value=${total_estudiantes} placeholder="Total de estudiantes">
+                <button type="button" class="btn btn-primary" onclick = "updateMarker(event)">Actualizar</button>
+                <button type="button" class="btn btn-info" onclick = "deleteMarker(event)">Eliminar</button>
+            </form>   
+        `);
+
+        function highlightFeature(e) {
+            const layer = e.target;
+            info.update(layer.feature.properties);
+        }
+
+        function resetHighlight(e) {
+            info.update();
+        }
+
+        const onEachFeature= ( feature, layer)=>{
+            layer.bindPopup(formulario(
+                feature.properties.id_marcador, 
+                feature.properties.nombre, 
+                feature.properties.direccion, 
+                feature.properties.total_estudiantes
+            ))
+            layer.on({
+                mouseover: highlightFeature,
+                mouseout: resetHighlight,
+            });
+        }
+        
+        const customIconMarker = (url)=> (
+            L.icon({
+                iconUrl: url,
+                iconSize: [30, 30],               // Tamaño más pequeño del ícono
+                iconAnchor: [15, 30],              // Ajusta el punto del ícono que corresponderá a la ubicación del marcador
+                popupAnchor: [-3, -30]  
+            })
+        );
+
+        const pointToLayer= (geoJsonPoint, latlng)=>{
+            return L.marker(latlng,{
+                icon: customIconMarker('image/school.png')
+            });
+        }
+        
+        const loadMarkers = ()=>{
+            // Aquí puedes agregar la lógica para enviar los datos con fetch
+            fetch(`${url}geovisor/create/marcadores`)
+            .then(response => response.json())
+            .then(data =>{
+                if(map.hasLayer(GeoJsonLayer)){
+                    map.removeLayer(GeoJsonLayer)
+                }
+                GeoJsonLayer = L.geoJson(data,{
+                    onEachFeature: onEachFeature,
+                    pointToLayer: pointToLayer
+                }).addTo(map)
+                map.fitBounds(GeoJsonLayer.getBounds())
+                // Actualizar la tabla
+                updateTable(data);
+
+            })
+            .catch(error => console.error('Error:', error));
+        }
+        loadMarkers()
+
+        const updateTable = (data) => {
+            const tablaInstituciones = document.getElementById('tablaInstituciones');
+            const tbody = tablaInstituciones.querySelector('tbody');
+
+            // Limpiar el contenido actual de la tabla
+            tbody.innerHTML = '';
+
+            // Iterar sobre los datos y agregar filas a la tabla
+            data.features.forEach(feature => {
+                let id = feature.properties.id_marcador;
+                const nombre = feature.properties.nombre || '';
+                const direccion = feature.properties.direccion || '';
+                const totalEstudiantes = feature.properties.total_estudiantes || '';
+
+                const row = `
+                    <tr onclick='addClassTrActive(event)' id='${id}'>
+                        <th>${nombre}</th>
+                        <td>${direccion}</td>
+                        <td>${totalEstudiantes}</td>
+                    </tr>
+                `;
+
+                tbody.innerHTML += row;
+            });
+        };
+        
+        //guardar nuevos marcadores
+        const saveMarker = (event) => {
+            event.preventDefault();
+            const nombre = document.getElementById('nombre').value
+            const direccion = document.getElementById('direccion').value
+            const total_estudiantes = document.getElementById('total_estudiantes').value
+            const lat = document.getElementById('lat').value
+            const lng = document.getElementById('lng').value
+
+            let formData = new FormData();
+            formData.append("nombre", nombre);
+            formData.append("direccion", direccion);
+            formData.append("total_estudiantes", total_estudiantes);
+            formData.append("lat", lat);
+            formData.append("lng", lng);
+
+            // Aquí puedes agregar la lógica para enviar los datos con fetch
+            fetch(`${url}geovisor/create/marcadores`, {
+                method: 'POST',
+                body: formData // o JSON.stringify(formObject) si el backend espera JSON
+            })
+            .then(response => response.json())
+            .then(data => {
+                map.removeLayer(markerCreate)
+                // Cambiar el contenido del toast
+                miToastEl.querySelector('.toast-body').textContent = 'El marcador se agrego con exito';
+                miToast.show();
+                loadMarkers()
+            })
+            .catch(error => console.error('Error:', error));
+        };
+
+        // Evento de clic en el mapa para agregar marcadores
+        map.on('click', function(e) {
+            if (isMarkerModeActive) {
+
+                if(map.hasLayer(markerCreate)){
+                    map.removeLayer(markerCreate)
+                }
+
+                markerCreate = L.marker(e.latlng,{icon:customIconMarker('image/school_bw.png')}).addTo(map);
+                
+                const lat = e.latlng.lat;
+                const lng = e.latlng.lng;
+
+                // Abrir un popup con un formulario
+                markerCreate.bindPopup(`
+                    <form class="popup-form" >
+                        <input type="text" id = 'nombre' name = 'nombre' value='' placeholder="Nombre"><br>
+                        <input type="text" id = 'direccion' name = 'direccion' value='' placeholder="Direccion"><br>
+                        <input type="number" id = 'total_estudiantes' name = 'total_estudiantes' value='' placeholder="Total de estudiantes"><br>
+                        <input type="number" id = 'lat' name = 'lat' value = ${lat} ><br>
+                        <input type="number" id = 'lng' name = 'lng' value = ${lng} ><br>
+                        <button type="submit" onclick = "saveMarker(event)">Guardar</button>
+                    </form>
+                `).openPopup();
+            }
+        });
+    </script>
+</body>
+</html>
